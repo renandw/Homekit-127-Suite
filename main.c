@@ -79,7 +79,7 @@ void relay_write_4(bool on) {
 
 
 void reset_configuration_task() {
-    printf("Resetting Wifi due to button long at GPIO %2d\n", BUTTON_PIN);
+    printf("Resetting Wifi");
     wifi_config_reset();
     vTaskDelay(1000 / portTICK_PERIOD_MS);
     printf("Resetting HomeKit Config\n");
@@ -126,7 +126,6 @@ void gpio_init() {
     gpio_enable(relay_gpio_4, GPIO_OUTPUT);
     relay_write_4(lightbulb_on_4.value.bool_value);
 
-    gpio_enable(BUTTON_PIN,  GPIO_INPUT);
     gpio_enable(TOGGLE_PIN_1, GPIO_INPUT);
     gpio_enable(TOGGLE_PIN_2, GPIO_INPUT);
     gpio_enable(TOGGLE_PIN_3, GPIO_INPUT);
@@ -186,6 +185,10 @@ void toggle_callback_4(bool high, void *context) {
     lightbulb_on_4.value.bool_value = !lightbulb_on_4.value.bool_value;
     relay_write_4(lightbulb_on_4.value.bool_value);
     homekit_characteristic_notify(&lightbulb_on_4, lightbulb_on_4.value);
+}
+
+void occupancy_identify(homekit_value_t _value) {
+    printf("Occupancy identify\n");
 }
 
 void light_identify(homekit_value_t _value) {
@@ -290,7 +293,9 @@ homekit_accessory_t *accessories[] = {
             &lightbulb_on_4,
             NULL
         }),
-
+        NULL,
+      }),
+      
         HOMEKIT_ACCESSORY(.id=5, .category=homekit_accessory_category_sensor, .services=(homekit_service_t*[]) {
             HOMEKIT_SERVICE(ACCESSORY_INFORMATION, .characteristics=(homekit_characteristic_t*[]) {
               &name,  
@@ -301,7 +306,7 @@ homekit_accessory_t *accessories[] = {
               HOMEKIT_CHARACTERISTIC(IDENTIFY, occupancy_identify),
                 NULL
             }),
-            HOMEKIT_SERVICE(OCCUPANCY_SENSOR, .primary=true, .characteristics=(homekit_characteristic_t*[]) {
+            HOMEKIT_SERVICE(OCCUPANCY_SENSOR, .characteristics=(homekit_characteristic_t*[]) {
                 HOMEKIT_CHARACTERISTIC(NAME, "Sensor de Ocupação"),
                 &occupancy_detected,
                 NULL
@@ -349,12 +354,6 @@ void user_init(void) {
     config.accessories[0]->config_number=c_hash;
 
     homekit_server_init(&config);
-
-    button_config_t config = BUTTON_CONFIG(
-        button_active_low,
-        .long_press_time = 10000,
-        .max_repeat_presses = 3,
-    );
 
 
     if (toggle_create(SENSOR_PIN, sensor_callback, NULL)) {
