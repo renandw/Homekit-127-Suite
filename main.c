@@ -27,10 +27,9 @@ const int relay_gpio_3 = 13;
 // The GPIO pin that is connected to RELAY#4 on the board.
 const int relay_gpio_4 = 16;
 
-// The GPIO pin that is connected to the button on the Board.
-#define BUTTON_PIN 3
-#ifndef BUTTON_PIN
-#error BUTTON_PIN is not specified
+#define SENSOR_PIN 4
+#ifndef SENSOR_PIN
+#error SENSOR_PIN is not specified
 #endif
 
 // The GPIO pin that is connected to the header on the board(external switch).
@@ -112,6 +111,7 @@ homekit_characteristic_t lightbulb_on_4 = HOMEKIT_CHARACTERISTIC_(
     ON, true, .callback=HOMEKIT_CHARACTERISTIC_CALLBACK(lightbulb_on_4_callback)
 );
 
+homekit_characteristic_t occupancy_detected = HOMEKIT_CHARACTERISTIC_(OCCUPANCY_DETECTED, 0);
 
 void gpio_init() {
     gpio_enable(relay_gpio_1, GPIO_OUTPUT);
@@ -190,6 +190,11 @@ void toggle_callback_4(bool high, void *context) {
 
 void light_identify(homekit_value_t _value) {
     printf("Light identify\n");
+}
+
+void sensor_callback(bool high, void *context) {
+    occupancy_detected.value = HOMEKIT_UINT8(high ? 1 : 0);
+    homekit_characteristic_notify(&occupancy_detected, occupancy_detected.value);
 }
 
 homekit_characteristic_t name = HOMEKIT_CHARACTERISTIC_(NAME, "5switch");
@@ -285,10 +290,26 @@ homekit_accessory_t *accessories[] = {
             &lightbulb_on_4,
             NULL
         }),
+
+        HOMEKIT_ACCESSORY(.id=5, .category=homekit_accessory_category_sensor, .services=(homekit_service_t*[]) {
+            HOMEKIT_SERVICE(ACCESSORY_INFORMATION, .characteristics=(homekit_characteristic_t*[]) {
+              &name,  
+              &manufacturer,
+              &serial,
+              &model,
+              &revision,
+              HOMEKIT_CHARACTERISTIC(IDENTIFY, occupancy_identify),
+                NULL
+            }),
+            HOMEKIT_SERVICE(OCCUPANCY_SENSOR, .primary=true, .characteristics=(homekit_characteristic_t*[]) {
+                HOMEKIT_CHARACTERISTIC(NAME, "Sensor de Ocupação"),
+                &occupancy_detected,
+                NULL
+            }),
+            NULL
+        }),
         NULL
-    }),
-    NULL
-};
+    };
 
 homekit_server_config_t config = {
     .accessories = accessories,
@@ -336,8 +357,8 @@ void user_init(void) {
     );
 
 
-    if (button_create(BUTTON_PIN, config, button_callback, NULL)) {
-        printf("Failed to initialize button\n");
+    if (toggle_create(SENSOR_PIN, sensor_callback, NULL)) {
+        printf("Failed to initialize sensor\n");
     }
 
     if (toggle_create(TOGGLE_PIN_1, toggle_callback_1, NULL)) {
