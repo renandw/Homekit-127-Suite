@@ -1,0 +1,20 @@
+esptool.py -p /dev/ttyUSB0 --baud 115200 write_flash -fs 8m -fm dout -ff 40m 0x0 rboot.bin 0x1000 blank_config.bin 0x2000 otaboot.bin
+
+
+
+openssl sha384 -binary -out firmware/smartlock.bin.sig firmware/smartlock.bin
+
+printf "%08x" `cat firmware/smartlock.bin | wc -c`| xxd -r -p >>firmware/smartlock.bin.sig
+
+
+
+
+openssl sha384 -binary -out firmware/luxsensor.bin.sig firmware/luxsensor.bin
+printf "%08x" `cat firmware/luxsensor.bin | wc -c`| xxd -r -p >>firmware/luxsensor.bin.sig
+
+cp luxsensor.bin /media/sf_Qr_Codes_-_Homekit
+cp luxsensor.bin.sig /media/sf_Qr_Codes_-_Homekit
+
+
+
+esptool.py -p /dev/ttyUSB0 --baud 115200 write_flash -fs 8m -fm dout -ff 40m 0x0 rboot.bin 0x1000 blank_config.bin 0x2000 ledstrip.bin
