@@ -16,18 +16,17 @@
 
 #include <button.h>
 #include <toggle.h>
-#include "ota-api.h"
 
 // The GPIO pin that is connected to RELAY#1 on the board.
 const int relay_gpio_1 = 0;
 // The GPIO pin that is connected to RELAY#2 on the board.
 const int relay_gpio_2 = 2;
 // The GPIO pin that is connected to RELAY#3 on the board.
-const int relay_gpio_3 = 13;
+const int relay_gpio_3 = 3;
 // The GPIO pin that is connected to RELAY#4 on the board.
-const int relay_gpio_4 = 16;
+const int relay_gpio_4 = 13;
 
-#define SENSOR_PIN 4
+#define SENSOR_PIN 16
 #ifndef SENSOR_PIN
 #error SENSOR_PIN is not specified
 #endif
@@ -200,8 +199,7 @@ void sensor_callback(bool high, void *context) {
     homekit_characteristic_notify(&occupancy_detected, occupancy_detected.value);
 }
 
-homekit_characteristic_t name = HOMEKIT_CHARACTERISTIC_(NAME, "5switch");
-homekit_characteristic_t ota_trigger  = API_OTA_TRIGGER;
+homekit_characteristic_t name = HOMEKIT_CHARACTERISTIC_(NAME, "4relay");
 homekit_characteristic_t manufacturer = HOMEKIT_CHARACTERISTIC_(MANUFACTURER,  "X");
 homekit_characteristic_t serial       = HOMEKIT_CHARACTERISTIC_(SERIAL_NUMBER, "1");
 homekit_characteristic_t model        = HOMEKIT_CHARACTERISTIC_(MODEL,         "Z");
@@ -225,7 +223,6 @@ homekit_accessory_t *accessories[] = {
         HOMEKIT_SERVICE(LIGHTBULB, .primary=true, .characteristics=(homekit_characteristic_t*[]){
 	         HOMEKIT_CHARACTERISTIC(NAME, "Lâmpada 1"),
 	          &lightbulb_on_1,
-            &ota_trigger,
             NULL
         }),
         NULL,
@@ -323,6 +320,7 @@ homekit_server_config_t config = {
 };
 
 void on_wifi_ready() {
+    homekit_server_init(&config);
 }
 
 void create_accessory_name() {
@@ -346,14 +344,8 @@ void create_accessory_name() {
 void user_init(void) {
     uart_set_baud(0, 115200);
     create_accessory_name();
+    wifi_config_init("4Lâmpadas", NULL, on_wifi_ready);
     gpio_init();
-
-    int c_hash=ota_read_sysparam(&manufacturer.value.string_value,&serial.value.string_value,
-                                      &model.value.string_value,&revision.value.string_value);
-    //c_hash=1; revision.value.string_value="0.0.1"; //cheat line
-    config.accessories[0]->config_number=c_hash;
-
-    homekit_server_init(&config);
 
 
     if (toggle_create(SENSOR_PIN, sensor_callback, NULL)) {
