@@ -16,6 +16,7 @@
 
 #include <button.h>
 #include <toggle.h>
+#include "ota-api.h"
 
 // The GPIO pin that is connected to RELAY#1 on the board.
 const int relay_gpio_1 = 0;
@@ -148,16 +149,6 @@ void lightbulb_on_4_callback(homekit_characteristic_t *_ch, homekit_value_t on, 
 }
 
 
-void button_callback(button_event_t event, void* context) {
-    switch (event) {
-        case button_event_long_press:
-            reset_configuration();
-            break;
-        default:
-            printf("Unknown button event: %d\n", event);
-    }
-}
-
 void toggle_callback_1(bool high, void *context) {
     printf("toggle is %s\n", high ? "high" : "low");
     lightbulb_on_1.value.bool_value = !lightbulb_on_1.value.bool_value;
@@ -186,12 +177,14 @@ void toggle_callback_4(bool high, void *context) {
     homekit_characteristic_notify(&lightbulb_on_4, lightbulb_on_4.value);
 }
 
-void occupancy_identify(homekit_value_t _value) {
-    printf("Occupancy identify\n");
-}
+
 
 void light_identify(homekit_value_t _value) {
     printf("Light identify\n");
+}
+
+void occupancy_identify(homekit_value_t _value) {
+    printf("Occupancy identify\n");
 }
 
 void sensor_callback(bool high, void *context) {
@@ -200,6 +193,7 @@ void sensor_callback(bool high, void *context) {
 }
 
 homekit_characteristic_t name = HOMEKIT_CHARACTERISTIC_(NAME, "4relay");
+homekit_characteristic_t ota_trigger  = API_OTA_TRIGGER;
 homekit_characteristic_t manufacturer = HOMEKIT_CHARACTERISTIC_(MANUFACTURER,  "X");
 homekit_characteristic_t serial       = HOMEKIT_CHARACTERISTIC_(SERIAL_NUMBER, "1");
 homekit_characteristic_t model        = HOMEKIT_CHARACTERISTIC_(MODEL,         "Z");
@@ -223,6 +217,7 @@ homekit_accessory_t *accessories[] = {
         HOMEKIT_SERVICE(LIGHTBULB, .primary=true, .characteristics=(homekit_characteristic_t*[]){
 	         HOMEKIT_CHARACTERISTIC(NAME, "Lâmpada 1"),
 	          &lightbulb_on_1,
+            &ota_trigger,
             NULL
         }),
         NULL,
@@ -314,14 +309,14 @@ homekit_accessory_t *accessories[] = {
     };
 
 homekit_server_config_t config = {
-    .accessories = accessories,
-    .password = "736-24-212",
-    .setupId="7EN2",
+        .accessories = accessories,
+        .password = "736-24-212",
+        .setupId="7EN2", //ci=8
 };
 
 void on_wifi_ready() {
-    homekit_server_init(&config);
 }
+
 
 void create_accessory_name() {
     uint8_t macaddr[6];
@@ -344,7 +339,6 @@ void create_accessory_name() {
 void user_init(void) {
     uart_set_baud(0, 115200);
     create_accessory_name();
-    wifi_config_init("4Lâmpadas", NULL, on_wifi_ready);
     gpio_init();
 
 
@@ -367,4 +361,11 @@ void user_init(void) {
     if (toggle_create(TOGGLE_PIN_4, toggle_callback_4, NULL)) {
         printf("Failed to initialize toggle 4 \n");
     }
+
+    int c_hash=ota_read_sysparam(&manufacturer.value.string_value,&serial.value.string_value,
+                                      &model.value.string_value,&revision.value.string_value);
+    //c_hash=1; revision.value.string_value="0.0.1"; //cheat line
+    config.accessories[0]->config_number=c_hash;
+
+    homekit_server_init(&config);
 }
